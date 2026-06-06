@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // "admin" or "technician"
+  reports   CalibrationReport[] @relation("TechnicianReports")
+  approvedBy CalibrationReport[] @relation("AdminReports")
+}
+
+model Vehicle {
+  id                   Int      @id @default(autoincrement())
+  registrationNumber   String   @unique
+  vin                  String?
+  make                 String?
+  model                String?
+  year                 Int?
+  bulkNumber           String?
+  omc                  String?
+  expirationDate       DateTime?
+  nominalCapacity      String?
+  lastCalibrationDate  DateTime?
+  imageUrl             String?
+  ownerName            String?
+  ownerPhone           String?
+  ownerEmail           String?
+  readings            CurrentReading[]
+  reports             CalibrationReport[]
+}
+
+model ReferenceParameter {
+  id               Int      @id @default(autoincrement())
+  vehicleModel     String   // Simplified: in real app this joins with a models table
+  category         String   @default("General")
+  parameterName    String
+  standardValue    Float
+  toleranceMin     Float
+  toleranceMax     Float
+  unit             String
+}
+
+model CurrentReading {
+  id             Int      @id @default(autoincrement())
+  vehicleId      Int
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  parameterName  String
+  measuredValue  Float
+  unit           String
+  timestamp      DateTime @default(now())
+}
+
+model CalibrationReport {
+  id               Int      @id @default(autoincrement())
+  vehicleId        Int
+  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  technicianId     Int
+  technician       User     @relation("TechnicianReports", fields: [technicianId], references: [id], onDelete: Cascade)
+  adminId          Int?
+  admin            User?    @relation("AdminReports", fields: [adminId], references: [id], onDelete: SetNull)
+  reportDataJson   String   // Stores comparison results array
+  status           String   @default("pending") // "pending", "approved", "rejected"
+  adminComment     String?
+  createdAt        DateTime @default(now())
+  certificate      Certificate?
+}
+
+model Certificate {
+  id                Int      @id @default(autoincrement())
+  reportId          Int      @unique
+  report            CalibrationReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  certificateNumber String   @unique
+  generatedAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  userEmail String?
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
+}
+
+model SystemSetting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
